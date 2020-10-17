@@ -1,0 +1,191 @@
+{{template "base/head" .}}
+<div class="repository file list">
+	{{template "repo/header" .}}
+	<style>
+		.list-files .segment.active {
+			background: #eee;
+		}
+		.segment {
+			line-height: 0.4rem;
+		}
+		.segment a {
+			color: inherit;
+		}
+	</style>
+	<div class="ui container">
+		<div class="ui one column grid">
+			<div class="column">
+				<div class="ui labeled fluid input">
+					<div class="ui label">/</div>
+					<input type="text" placeholder="" class="file-search-input">
+				</div>
+			</div>
+		</div>
+		<div class="ui stacked segments list-files" style="display: none">
+		</div>
+	</div>
+	<script>
+		(function ($, files, repo, rev) {
+			var MAX_RENDERED_RESULTS = 20;
+
+			var results = [],
+					$input = $('.file-search-input'),
+					$holder = $('.list-files');
+
+			function FileMatch(file, matches) {
+				this.file = file;
+				this.matches = matches;
+				this.distance = function () {
+					if (typeof this.d === 'undefined') {
+						this.d = 0;
+						for (var i = this.matches.length; i > 1; i--) {
+							this.d += this.matches[i - 1] - this.matches[i - 2]
+						}
+					}
+					return this.d;
+				};
+				this.render = function () {
+					var content = '';
+					for (var i in this.file) {
+						if (matches.indexOf(parseInt(i, 10)) > -1) {
+							content += '<b>' + this.file[i] + '</b>';
+						} else {
+							content += this.file[i];
+						}
+					}
+					return '<div class="ui segment"><a href="' + repo + '/src/'+ rev + '/' + this.file +'">'
+									+ content + '</a></div>'
+				}
+			}
+
+			/**
+			 * Search function
+			 * @param str
+			 * @returns FileMatch[]
+			 */
+			function match(str) {
+				var result = [];
+				for (var s in files) {
+					var lastPosition = 0,
+									matches = [],
+									position;
+					for (var i in str) {
+						position = files[s].toLowerCase().indexOf(str[i].toLowerCase(), lastPosition === 0 ? 0 : lastPosition + 1)
+						if (position !== -1) {
+							lastPosition = position;
+							matches.push(position);
+						}
+						if (matches.length === str.length) {
+							result.push(new FileMatch(files[s], matches));
+						}
+					}
+				}
+
+				return result;
+			}
+
+			function selectNextResult() {
+				var $activeSegment = $('.segment.active');
+				if ($activeSegment.length === 0) {
+					$('.segment').first().addClass('active')
+				} else {
+					$activeSegment.removeClass('active').next().addClass('active')
+				}
+			}
+
+			function selectPrevResult() {
+				var $activeSegment = $('.segment.active');
+				if ($activeSegment.length === 0) {
+					$('.segment').last().addClass('active')
+				} else {
+					if ($activeSegment.prev().length === 0) {
+						$input.focus();
+					}
+					$activeSegment.removeClass('active').prev().addClass('active')
+				}
+			}
+
+			function searchAndRender(searchString) {
+				var html = '';
+
+				results = match(searchString);
+
+				results = results.sort(function (a, b) {
+					if (a.distance() < b.distance()) {
+						return -1
+					}
+					if (a.distance() === b.distance()) {
+						return 0;
+					}
+					if (a.distance() > b.distance()) {
+						return 1;
+					}
+				})
+
+				for (var i in results.slice(0, MAX_RENDERED_RESULTS)) {
+					html += results[i].render();
+				}
+
+				$holder.html(html);
+			}
+
+			function search(value) {
+				searchAndRender(value);
+				if (!results || value === '') {
+					$holder.hide();
+				} else {
+					$holder.show();
+				}
+			}
+
+			$(window).keydown(function(e) {
+				var $target = $(e.target),
+						keysUpDownEnter = [13, 38, 40];
+
+				// catch all keys on input (excluding Up, Down and Enter)
+				if (keysUpDownEnter.indexOf(e.keyCode) === -1 && $input.is($target)) {
+					// setTimeout is needed because on keydown input hasn't actual value
+					setTimeout(function() {
+						search($input.val())
+					}, 10)
+					return;
+				}
+
+				// prevent scroll page to bottom on key down
+				if (results.length === 0 || keysUpDownEnter.indexOf(e.keyCode) === -1) {
+					if (!$input.is($target) && !$('body').is($target)) {
+						e.preventDefault();
+					}
+					return;
+				}
+
+				// Down
+				if (e.keyCode === 40) {
+					selectNextResult();
+					e.preventDefault();
+				}
+
+				// Up
+				if (e.keyCode === 38) {
+					selectPrevResult();
+					e.preventDefault();
+				}
+
+				// Enter
+				if (e.keyCode === 13) {
+					var $link = $('.segment.active a');
+					if ($link.length) {
+						$link[0].click();
+					}
+				}
+			});
+
+			setTimeout(function() {
+				$input.focus()
+				search($input.val());
+			}, 100)
+
+		})(jQuery, {{.FilesTree}}, {{.RepoLink}}, {{.Revision}})
+	</script>
+</div>
+{{template "base/footer" .}}

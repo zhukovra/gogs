@@ -593,6 +593,8 @@ func runWeb(c *cli.Context) error {
 
 			m.Get("/archive/*", repo.MustBeNotBare, repo.Download)
 
+			m.Get("/search/:revision", repo.MustBeNotBare, repo.SearchFile)
+
 			m.Group("/pulls/:index", func() {
 				m.Get("/commits", context.RepoRef(), repo.ViewPullCommits)
 				m.Get("/files", context.RepoRef(), repo.ViewPullFiles)
